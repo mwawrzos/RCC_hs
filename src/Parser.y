@@ -1,5 +1,5 @@
 {
-module Main (main) where
+module Parser where
 
 import Data.Maybe (Maybe(..), maybe, maybeToList)
 import Control.Monad
