@@ -1,5 +1,4 @@
-module Main where
-
 gen = id
 
+main :: IO ()
 main = print "asd"
