@@ -108,6 +108,9 @@ data Token = EOL
            | ConstantTooBig  { pos :: AlexPosn , ctb :: Integer }
            deriving (Eq,Show)
 
+showPos :: AlexPosn -> String
+showPos (AlexPn _ line col) = show (line, col)
+
 readNumber :: AlexPosn -> String -> Token
 readNumber pos number =
     if integer > toInteger (maxBound :: Int)

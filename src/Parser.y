@@ -11,6 +11,7 @@ import qualified Lexer as L
 %name parse
 %tokentype { Token }
 %error { parseError }
+%monad { Either String }
 
 %token
         ADD         { L.ADD             _    }
@@ -71,7 +72,7 @@ Line         :: { Maybe Instruction }
 
 Instruction  :: { Instruction }
              : LabelList Operation Mode Expr comment                { OneField  $1 $2 $3 $4       }
-             | LabelList END       Mode      comment                { OneField  $1 (NoModified END) $3 (Term $ Number 0) }
+             | LabelList END                 comment                { OneField  $1 (NoModified END) Empty (Term $ Number 0) }
              | LabelList Operation Mode Expr ',' Mode Expr comment  { TwoFields $1 $2 $3 $4 $6 $7 }
              
 -- LabelList    :: { [PLabel] }
@@ -147,13 +148,13 @@ SignedNumber :: { Int }
              | '-' number                                           { -$2 }
 
 {
-parseError :: [Token] -> a
-parseError asd = error $ "parseError " ++ (show (lin, col)) ++  " " ++ (show $ head asd)
+parseError :: [Token] -> Either String a
+parseError asd = Left $ "parseError " ++ (show (lin, col)) ++  " " ++ (show $ head asd)
     where
         L.AlexPn _ lin col = L.pos $ head asd
 
-data Instruction = OneField  [L.Token] Operation Mode Expr
-                 | TwoFields [L.Token] Operation Mode Expr Mode Expr
+data Instruction = OneField  { labelList :: [L.Token] , operation :: Operation , fstMode :: Mode , fstExpr :: Expr                                     }
+                 | TwoFields { labelList :: [L.Token] , operation :: Operation , fstMode :: Mode , fstExpr :: Expr , sndMode :: Mode , sndExpr :: Expr }
                  deriving Show
 
 -- data PLabel       = PLabel L.AlexPosn String deriving Show
@@ -211,6 +212,4 @@ data Term        = Label  String
                  | Number Int
                  | Par    Expr
                  deriving Show
-
-main = getContents >>= (mapM print) . parse . scan
 }
