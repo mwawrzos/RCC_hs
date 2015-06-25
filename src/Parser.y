@@ -13,6 +13,9 @@ import qualified Lexer as L
 %error { parseError }
 %monad { Either String }
 
+%left '+' '-'
+%left '%' '*' '/'
+
 %token
         ADD         { L.ADD             _    }
         CMP         { L.CMP             _    }
@@ -71,14 +74,10 @@ Line         :: { Maybe Instruction }
           
 
 Instruction  :: { Instruction }
-             : LabelList Operation Mode Expr comment                { OneField  $1 $2 $3 $4       }
-             | LabelList END                 comment                { OneField  $1 (NoModified END) Empty (Term $ Number 0) }
-             | LabelList Operation Mode Expr ',' Mode Expr comment  { TwoFields $1 $2 $3 $4 $6 $7 }
-             
--- LabelList    :: { [PLabel] }
---              : label LabelList                                      { PLabel (L.pos $1) $1 : $2 }
---              | label comment LabelList                              { PLabel (L.pos $1) $1 : $2 }
---              | {- empty -}                                          { []                        }
+             : LabelList Operation Mode Expr comment                { OneField  $1 $2 $3 $4                  }
+             | LabelList END            Expr comment                { OneField  $1 (NoModified END) Empty $3 }
+             | LabelList END                 comment                { NoField   $1 (NoModified END)          }
+             | LabelList Operation Mode Expr ',' Mode Expr comment  { TwoFields $1 $2 $3 $4 $6 $7            }
              
 LabelList    :: { [L.Token] }
              : label LabelList                                      { $1 : $2 }
@@ -127,11 +126,11 @@ Mode         :: { Mode }
 
 Expr         :: { Expr }
              : Term                                                 { Term $1    }
-             | Term '+' Expr                                        { Sum  $1 $3 }
-             | Term '-' Expr                                        { Sub  $1 $3 }
-             | Term '*' Expr                                        { Mul  $1 $3 }
-             | Term '/' Expr                                        { Div  $1 $3 }
-             | Term '%' Expr                                        { Mod  $1 $3 }
+             | Expr '+' Expr                                        { Sum  $1 $3 }
+             | Expr '-' Expr                                        { Sub  $1 $3 }
+             | Expr '*' Expr                                        { Mul  $1 $3 }
+             | Expr '/' Expr                                        { Div  $1 $3 }
+             | Expr '%' Expr                                        { Mod  $1 $3 }
              
              
 Term         :: { Term }
@@ -153,14 +152,13 @@ parseError asd = Left $ "parseError " ++ (show (lin, col)) ++  " " ++ (show $ he
     where
         L.AlexPn _ lin col = L.pos $ head asd
 
-data Instruction = OneField  { labelList :: [L.Token] , operation :: Operation , fstMode :: Mode , fstExpr :: Expr                                     }
+data Instruction = NoField   { labelList :: [L.Token] , operation :: Operation                                                                         }
+                 | OneField  { labelList :: [L.Token] , operation :: Operation , fstMode :: Mode , fstExpr :: Expr                                     }
                  | TwoFields { labelList :: [L.Token] , operation :: Operation , fstMode :: Mode , fstExpr :: Expr , sndMode :: Mode , sndExpr :: Expr }
                  deriving Show
 
--- data PLabel       = PLabel L.AlexPosn String deriving Show
-                 
-data Operation   = Modified   Opcode Modifier
-                 | NoModified Opcode
+data Operation   = Modified   { opcode :: Opcode , modifier :: Modifier }
+                 | NoModified { opcode :: Opcode                        }
                  deriving Show
   
 data Opcode      = ADD
@@ -201,11 +199,11 @@ data Mode        = Immediate
                  deriving Show
           
 data Expr        = Term Term
-                 | Sum Term Expr
-                 | Sub Term Expr
-                 | Mul Term Expr
-                 | Div Term Expr
-                 | Mod Term Expr
+                 | Sum Expr Expr
+                 | Sub Expr Expr
+                 | Mul Expr Expr
+                 | Div Expr Expr
+                 | Mod Expr Expr
                  deriving Show
           
 data Term        = Label  String
