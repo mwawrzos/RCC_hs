@@ -16,8 +16,6 @@ cabal-version:       >=1.10
 
 executable rc
   main-is:             Gen.hs
-  other-modules:       Lexer,
-                       Parser
   -- other-extensions:    
   build-depends:       base >=4.7 && <4.8,
                        array,
@@ -25,6 +23,9 @@ executable rc
                        data-default,
                        either,
                        lens,
+                       mtl,
+                       nats,
+                       random,
                        transformers
   hs-source-dirs:      src
   build-tools:         alex, happy

@@ -61,23 +61,23 @@ import qualified Lexer as L
         
 %%
 
-AssemblyFile :: { [Instruction] }
+AssemblyFile :: { [Line] }
              : List                                                 { $1 }
              
-List         :: { [Instruction] }
-             : Line                                                 { maybeToList $1     }
-             | Line List                                            { maybe $2 (: $2) $1 }
+List         :: { [Line] }
+             : Line                                                 { [$1]    }
+             | Line List                                            { $1 : $2 }
              
-Line         :: { Maybe Instruction }
-             : comment                                              { Nothing }
-             | Instruction                                          { Just $1 }
+Line         :: { Line }
+             : comment                                              { Comment     $1 }
+             | Instruction                                          { Instruction $1 }
           
 
 Instruction  :: { Instruction }
-             : LabelList Operation Mode Expr comment                { OneField  $1 $2 $3 $4                  }
-             | LabelList END            Expr comment                { OneField  $1 (NoModified END) Empty $3 }
-             | LabelList END                 comment                { NoField   $1 (NoModified END)          }
-             | LabelList Operation Mode Expr ',' Mode Expr comment  { TwoFields $1 $2 $3 $4 $6 $7            }
+             : LabelList Operation Mode Expr               comment  { OneField  $1 $2 $3 $4 $5                  }
+             | LabelList END            Expr               comment  { OneField  $1 (NoModified END) Empty $3 $4 }
+             | LabelList END                               comment  { NoField   $1 (NoModified END) $3          }
+             | LabelList Operation Mode Expr ',' Mode Expr comment  { TwoFields $1 $2 $3 $4 $6 $7 $8            }
              
 LabelList    :: { [L.Token] }
              : label LabelList                                      { $1 : $2 }
@@ -152,9 +152,13 @@ parseError asd = Left $ "parseError " ++ (show (lin, col)) ++  " " ++ (show $ he
     where
         L.AlexPn _ lin col = L.pos $ head asd
 
-data Instruction = NoField   { labelList :: [L.Token] , operation :: Operation                                                                         }
-                 | OneField  { labelList :: [L.Token] , operation :: Operation , fstMode :: Mode , fstExpr :: Expr                                     }
-                 | TwoFields { labelList :: [L.Token] , operation :: Operation , fstMode :: Mode , fstExpr :: Expr , sndMode :: Mode , sndExpr :: Expr }
+data Line        = Instruction Instruction
+                 | Comment     String
+                 deriving Show
+
+data Instruction = NoField   { labelList :: [L.Token] , operation :: Operation                                                                         , comment :: String }
+                 | OneField  { labelList :: [L.Token] , operation :: Operation , fstMode :: Mode , fstExpr :: Expr                                     , comment :: String }
+                 | TwoFields { labelList :: [L.Token] , operation :: Operation , fstMode :: Mode , fstExpr :: Expr , sndMode :: Mode , sndExpr :: Expr , comment :: String }
                  deriving Show
 
 data Operation   = Modified   { opcode :: Opcode , modifier :: Modifier }
