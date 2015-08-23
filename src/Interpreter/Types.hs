@@ -1,67 +1,24 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections   #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Interpreter.Types where
 
-import Numeric.Natural
-import Control.Lens        hiding (Context)
+
+import Data.Ix                (inRange)
+import Data.Foldable          (fold)
+import Control.Lens           hiding (Context)
 import Control.Applicative
-import Control.Monad       (join)
-import Data.Map            as Map
+import Control.Monad          (join)
+import Data.Map               as Map hiding (fold)
 import Data.Monoid
-import Data.List           as L
-import Control.Monad.State (State, get, put, runState)
-import Data.Maybe          (fromMaybe)
-import System.Random       (randomRs, mkStdGen, Random, randomR, RandomGen, genRange, next)
+import Data.List              as L
+import Control.Monad.State    (State, get, put, evalState)
+import Data.Maybe             (fromMaybe)
+import System.Random          (randomRs, mkStdGen)
 
 import qualified Interpreter.Queue as Q
 import           Interpreter.Queue (Queue(..))
-
-data Opcode   = DAT
-              | MOV
-              | ADD
-              | SUB
-              | MUL
-              | DIV
-              | MOD
-              | JMP
-              | JMZ
-              | JMN
-              | DJN
-              | CMP
-              | SLT
-              | SPL
-              deriving (Eq)
-
-data Modifier = A
-              | B
-              | AB
-              | BA
-              | F
-              | X
-              | I
-              deriving (Eq)   
-
-data Mode     = IMMEDIATE
-              | DIRECT
-              | INDIRECT
-              | DECREMENT
-              | INCREMENT
-               deriving (Eq)       
-
-instance Random Natural    where randomR = randomIvalIntegral
-
-type Warior  = Natural
-newtype Address = Address { runAddress :: Natural } deriving (Eq, Integral, Random, Monoid, Num, Ord, Real, Enum)
-
-data Instruction = Instruction { _opcode   :: Opcode
-                               , _modifier :: Modifier
-                               , _aMode    :: Mode
-                               , _aNumber  :: Address
-                               , _bMode    :: Mode
-                               , _bNumber  :: Address
-                               } deriving (Eq)
+import           Interpreter.AST
 
 makeLenses ''Instruction
 
@@ -77,43 +34,41 @@ putQ w a = do
     let newMap = Map.adjust (Q.put a) w $ _queue ctx
     put $ ctx & queue .~ newMap
 
-
-randomIvalIntegral :: (RandomGen g, Integral a) => (a, a) -> g -> (a, g)
-randomIvalIntegral (l,h) = randomIvalInteger (toInteger l, toInteger h)
-
-randomIvalInteger :: (RandomGen g, Num a) => (Integer, Integer) -> g -> (a, g)
-randomIvalInteger (l,h) rng
- | l > h     = randomIvalInteger (h,l) rng
- | otherwise = case (f 1 0 rng) of (v, rng') -> (fromInteger (l + v `mod` k), rng')
-     where
-       (genlo, genhi) = genRange rng
-       b = fromIntegral genhi - fromIntegral genlo + 1
-
-       -- Probabilities of the most likely and least likely result
-       -- will differ at most by a factor of (1 +- 1/q).  Assuming the RandomGen
-       -- is uniform, of course
-
-       -- On average, log q / log b more random values will be generated
-       -- than the minimum
-       q = 1000
-       k = h - l + 1
-       magtgt = k * q
-
-       -- generate random values until we exceed the target magnitude 
-       f mag v g | mag >= magtgt = (v, g)
-                 | otherwise = v' `seq`f (mag*b) v' g' where
-                        (x,g') = next g
-                        v' = (v * b + (fromIntegral x - fromIntegral genlo))
-
+start :: [[Instruction]] -> Either SystemState SystemState
 start codes = do
     let coreSize = 4000
-        core     = cycle $ genericTake coreSize $ repeat $ Instruction DAT I DIRECT 1 DIRECT 1
-        wariors  = take 2 [1..]
-        pos      = (flip Queue []) <$> (return $ take 2 $ randomRs (0, coreSize) $ mkStdGen 0)
-        codesLen = mconcat $ (genericLength <$> codes)
+        wariors  = take (length codes) [1..]
+        codesLen = fold $ genericLength <$> codes
     if codesLen > coreSize then Left  Undefined
                            else Right Success
-    return $ runState (execWar 100 100 (cycle wariors)) $ Context core (Map.fromList $ zip wariors pos) 0 4000
+    let pos    = validatePos codes $ randomRs (0, coreSize) $ mkStdGen 0
+        queues = flip Q.put (Queue [] []) <$> pos
+        core   = cycle $ genericTake coreSize $ putCode pos codes
+        ctx    = Context core (Map.fromList $ zip wariors queues) 0 4000
+
+    return $ evalState (execWar 100 100 (cycle wariors)) ctx
+
+putCode :: [Address] -> [[Instruction]] -> [Instruction]
+putCode pos codes = core <> hole
+    where core  = L.foldl (\a (dat, code) -> dat <> code <> a) [] $ zip holes codes 
+          holes = flip genericTake hole <$> diffs pos
+          hole  = repeat $ Instruction DAT I DIRECT 1 DIRECT 1
+          diffs :: [Address] -> [Address]
+          diffs _              = []
+          diffs (a : (b : cx)) = b - a : diffs cx
+
+validatePos :: Num a => [[Instruction]] -> [Address] -> [Address]
+validatePos codes randoms =
+    if invalid then validatePos codes randomTail
+               else randomHead
+    where (randomHead, randomTail) = genericSplitAt n randoms
+          ranges                   = zipWith (\codeLen pos -> (pos, pos + codeLen)) randomHead $ genericLength <$> codes
+          invalid                  = n > (fold $ fromBool <$> (inRange <$> ranges <*> randomHead))
+          n                        = genericLength codes
+          fromBool :: Bool -> Address
+          fromBool True            = 1
+          fromBool False           = 0
+
 
 execWar :: Address -> Address -> [Warior] -> State Context SystemState
 execWar readLimit writeLimit (w : wx) = do

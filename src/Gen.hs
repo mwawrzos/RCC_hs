@@ -141,5 +141,5 @@ import Interpreter.Types
 
 main :: IO ()
 main = do
-    ast <- show . parse . scan <$> getContents
-    print $ show ast
+    ast <- parse . scan <$> getContents
+    print $ ast
