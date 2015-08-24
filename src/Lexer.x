@@ -1,7 +1,10 @@
 {
+{-# LANGUAGE StandaloneDeriving #-}
+
 module Lexer where
 
 import Control.Monad
+import qualified Interpreter.AST as I
 }
 
 %wrapper "posn"
@@ -64,7 +67,7 @@ tokens :-
 -- The token type:
 data Token = EOL
            | Label           { pos :: AlexPosn , lab :: String  }
-           | WholeNumber     { pos :: AlexPosn , int :: Int     }
+           | WholeNumber     { pos :: AlexPosn , int :: I.Address }
            | Comment         { pos :: AlexPosn , txt :: String  }
            | ADD             { pos :: AlexPosn                  }
            | CMP             { pos :: AlexPosn                  }
@@ -106,14 +109,15 @@ data Token = EOL
            | COMMA           { pos :: AlexPosn                  }
            | Unknown         { pos :: AlexPosn , char :: Char   }
            | ConstantTooBig  { pos :: AlexPosn , ctb :: Integer }
-           deriving (Eq,Show)
+           deriving (Eq,Show, Ord)
+deriving instance Ord AlexPosn
 
 showPos :: AlexPosn -> String
 showPos (AlexPn _ line col) = show (line, col)
 
 readNumber :: AlexPosn -> String -> Token
 readNumber pos number =
-    if integer > toInteger (maxBound :: Int)
+    if False -- integer > toInteger (maxBound :: I.Address)
         then ConstantTooBig pos integer
         else WholeNumber pos $ fromIntegral integer
     where integer = read number :: Integer

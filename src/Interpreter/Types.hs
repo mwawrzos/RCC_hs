@@ -20,11 +20,9 @@ import qualified Interpreter.Queue as Q
 import           Interpreter.Queue (Queue(..))
 import           Interpreter.AST
 
-makeLenses ''Instruction
+data SystemState = Undefined | Success deriving Show
 
-data SystemState = Undefined | Success
-
-data Context = Context { _core :: [Instruction] , _queue :: Map Warior (Queue Address) , _warior :: Warior , coreSize :: Address}
+data Context = Context { _core :: [Instruction] , _queue :: Map Warior (Queue Address) , _warior :: Warior , coreSize :: Address} deriving Show
 
 makeLenses ''Context
 
@@ -37,7 +35,7 @@ putQ w a = do
 start :: [[Instruction]] -> Either SystemState SystemState
 start codes = do
     let coreSize = 4000
-        wariors  = take (length codes) [1..]
+        wariors  = take (length codes) [0..]
         codesLen = fold $ genericLength <$> codes
     if codesLen > coreSize then Left  Undefined
                            else Right Success
@@ -54,8 +52,8 @@ putCode pos codes = core <> hole
           holes = flip genericTake hole <$> diffs pos
           hole  = repeat $ Instruction DAT I DIRECT 1 DIRECT 1
           diffs :: [Address] -> [Address]
-          diffs _              = []
           diffs (a : (b : cx)) = b - a : diffs cx
+          diffs _              = []
 
 validatePos :: Num a => [[Instruction]] -> [Address] -> [Address]
 validatePos codes randoms =
@@ -99,7 +97,7 @@ emi94 readLimit writeLimit = do
     Instruction opc modifier aMode aNumber bMode bNumber <- head . _core <$> get
     (rpa, _  , ira) <- getRWpointers aMode aNumber (`mod` readLimit) (`mod` writeLimit)
     (_  , wpb, irb) <- getRWpointers bMode bNumber (`mod` readLimit) (`mod` writeLimit)
-    undefined
+    exec opc modifier ira irb wpb rpa
 
 
 getRWpointers :: Mode -> Address -> (Address -> Address) -> (Address -> Address) -> State Context (Address, Address, Instruction)

@@ -18,29 +18,30 @@ a       equ (head-MINDISTANCE)
 l       equ ((2*q)+MAXLENGTH)
 k       equ (l/j+1)
 d       equ 1000
+m       euq 1
 
 
 ; Here's the code for testing where in the group of four locations
 ; the enemy lies.
 
 head
-test        JMP.i   @-1,        @0
-        add.ab  #2*q,       @-1
+test        JMP.i   -1,        0
+        add.ab  #2*q,       -1
         add.b   test,       bite
-        add.b   @test,      bite
+        add.b   test,      bite
 ; At this point, bite.B points to the start of the bombing zone.
 ; First, transport the pit there
         mov.i   pit,        >bite
         mov.i   mega,       >bite
 ; Then vampirize, moving backward
-stun        mov.i   bite,       @bite
+stun        mov.i   bite,       bite
         add.f   vamp,       bite
         djn.b   stun,       #k
 
 ; Now copy the core-clear to the end of the bombing zone
 copy        mov.i   >ptr1,      <bite
         djn.b   copy,       #4
-ptr1        jmp.b   @bite,      bomb
+ptr1        jmp.b   bite,      bomb
 
 ; This is a suicidal core-clear (for the enemy)
 pit     spl.b   #s2,        s1
@@ -77,7 +78,7 @@ imp     mov.i   0,      step
 entry
         spl.i   a-(m*s),    a-(m*s)+(2*q)
         ;seq.i   a-(m*s)+q,  a-(m*s)+(3*q)
-        sub.x   #test+2,    @test
+        sub.x   #test+2,    test
 
 ; If something is found, go to test (and bombing)
 ; If not, then start stone

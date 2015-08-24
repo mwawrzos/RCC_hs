@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Interpreter.AST (
@@ -6,13 +7,22 @@ module Interpreter.AST (
 	Mode(..),
 	Instruction(..),
 	Warior,
-	Address
+	Address,
+	opcode,
+	modifier,
+	aMode,
+	aNumber,
+	bMode,
+	bNumber
 ) where
 
 import Numeric.Natural
 import Data.Ix			(Ix)
 import Data.Monoid
 import System.Random 	(Random, RandomGen, genRange, next, randomR)
+import Control.Lens.TH (makeLenses)
+
+
 
 data Opcode   = DAT
               | MOV
@@ -28,7 +38,7 @@ data Opcode   = DAT
               | CMP
               | SLT
               | SPL
-              deriving (Eq)
+              deriving (Eq, Show)
 
 data Modifier = A
               | B
@@ -37,14 +47,14 @@ data Modifier = A
               | F
               | X
               | I
-              deriving (Eq)   
+              deriving (Eq, Show)   
 
 data Mode     = IMMEDIATE
               | DIRECT
               | INDIRECT
               | DECREMENT
               | INCREMENT
-               deriving (Eq)
+               deriving (Eq, Show)
 
 
 randomIvalIntegral :: (RandomGen g, Integral a) => (a, a) -> g -> (a, g)
@@ -77,7 +87,8 @@ randomIvalInteger (l,h) rng
 instance Random Natural    where randomR = randomIvalIntegral
 
 type Warior  = Natural
-newtype Address = Address { runAddress :: Natural } deriving (Eq, Integral, Random, Num, Ord, Real, Enum, Ix)
+--type Address = Int
+newtype Address = Address { runAddress :: Natural } deriving (Show, Eq, Integral, Random, Num, Ord, Real, Enum, Ix)
 
 instance Monoid Address where
     mempty  = Address 0
@@ -89,4 +100,6 @@ data Instruction = Instruction { _opcode   :: Opcode
                                , _aNumber  :: Address
                                , _bMode    :: Mode
                                , _bNumber  :: Address
-                               } deriving (Eq)
+                               } deriving (Eq, Show)
+
+makeLenses ''Instruction

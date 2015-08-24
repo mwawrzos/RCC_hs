@@ -8,7 +8,7 @@ module Interpreter.Queue (
 import Data.Functor as X (fmap, (<$>))
 import Control.Applicative ((<*>))
 
-data Queue a = Queue [a] [a]
+data Queue a = Queue [a] [a] deriving Show
 
 instance Functor Queue where
     fmap f (Queue a b) = Queue (f <$> a) (f <$> b)

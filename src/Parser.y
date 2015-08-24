@@ -6,6 +6,8 @@ import Control.Monad
 
 import           Lexer (Token, scan)
 import qualified Lexer as L
+
+import qualified Interpreter.AST as I
 }
 
 %name parse
@@ -134,17 +136,17 @@ Expr         :: { Expr }
              
              
 Term         :: { Term }
-             : label                                                { Label  $ L.lab $1 }
+             : label                                                { Label  $1 }
              | Number                                               { Number $1 }
              | '(' Expr ')'                                         { Par    $2 }
 
-Number       :: { Int }
+Number       :: { I.Address }
              : number                                               { $1 }
              | SignedNumber                                         { $1 }
 
-SignedNumber :: { Int }
+SignedNumber :: { I.Address }
              : '+' number                                           {  $2 }
-             | '-' number                                           { -$2 }
+             | '-' number                                           { 4000 - (mod $2 4000) }
 
 {
 parseError :: [Token] -> Either String a
@@ -210,8 +212,8 @@ data Expr        = Term Term
                  | Mod Expr Expr
                  deriving Show
           
-data Term        = Label  String
-                 | Number Int
+data Term        = Label  L.Token
+                 | Number I.Address
                  | Par    Expr
                  deriving Show
 }

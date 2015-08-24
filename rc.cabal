@@ -17,6 +17,8 @@ cabal-version:       >=1.10
 executable rc
   main-is:             Gen.hs
   -- other-extensions:    
+  other-modules:       Lexer,
+                       Parser
   build-depends:       base >=4.7 && <4.8,
                        array,
                        containers,
